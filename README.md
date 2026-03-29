@@ -1,15 +1,41 @@
 # bull-pilot
 
-To install dependencies:
+## Install
 
 ```bash
 bun install
 ```
 
-To run:
+## Environment
+
+Create `.env`:
 
 ```bash
-bun run index.ts
+OPENAI_API_KEY=your_kimi_key
+OPENAI_BASE_URL=https://api.moonshot.cn/v1
+OPENAI_MODEL=kimi-k2-0711-preview
 ```
 
-This project was created using `bun init` in bun v1.2.21. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Run
+
+```bash
+bun run start
+```
+
+Example query:
+
+```text
+读取 package.json 的 name 和 version
+```
+
+## Typecheck
+
+```bash
+bun run typecheck
+```
+
+## Known Limits (V0)
+
+- Single tool only: `read_file`
+- Single query focus, no persistent memory
+- No write-tool approval flow

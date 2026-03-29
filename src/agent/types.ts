@@ -29,6 +29,19 @@ export type DoneEvent = {
   answer: string;
 };
 
+export type AnswerStartEvent = {
+  type: "answer_start";
+};
+
+export type AnswerDeltaEvent = {
+  type: "answer_delta";
+  delta: string;
+};
+
+export type AnswerEndEvent = {
+  type: "answer_end";
+};
+
 export type ApprovalRequestEvent = {
   type: "approval_request";
   name: ToolName;
@@ -46,6 +59,9 @@ export type AgentEvent =
   | ToolStartEvent
   | ToolEndEvent
   | ToolErrorEvent
+  | AnswerStartEvent
+  | AnswerDeltaEvent
+  | AnswerEndEvent
   | ApprovalRequestEvent
   | ApprovalResultEvent
   | DoneEvent;

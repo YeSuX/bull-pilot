@@ -1,12 +1,15 @@
-import { runAgent, type LlmClient, type RunAgentOptions } from "../agent/run-agent";
+import {
+  runAgent,
+  type ConversationMessage,
+  type LlmClient,
+  type RunAgentOptions
+} from "../agent/run-agent";
 import type { AgentEvent } from "../agent/types";
-import type { ApprovalDecision, WorkingState } from "./types";
-import type { ToolName } from "../tools/registry";
-import { renderEvent } from "../ui/renderer";
-import { renderWorkingState } from "../ui/working-indicator";
+import type { WorkingState } from "./types";
 import { logger } from "../utils/logger";
 import { ApprovalController } from "./approval";
 import { InputHistoryController } from "./input-history";
+import type { UiAdapter } from "../ui/adapter";
 
 type RunAgentFunction = (
   client: LlmClient,
@@ -15,31 +18,23 @@ type RunAgentFunction = (
   options: RunAgentOptions
 ) => AsyncGenerator<AgentEvent>;
 
-type PendingApproval = {
-  toolName: ToolName;
-  resolve: (decision: ApprovalDecision) => void;
-};
-
 export class AgentRunnerController {
   private workingState: WorkingState = "idle";
   private abortController: AbortController | null = null;
   private currentRun: Promise<void> | null = null;
-  private pendingApproval: PendingApproval | null = null;
+  private readonly conversation: ConversationMessage[] = [];
 
   public constructor(
     private readonly client: LlmClient,
     private readonly getModelId: () => string,
     private readonly inputHistoryController: InputHistoryController,
     private readonly approvalController: ApprovalController,
+    private readonly uiAdapter: UiAdapter,
     private readonly runner: RunAgentFunction = runAgent
   ) {}
 
   public isRunning(): boolean {
     return this.currentRun !== null;
-  }
-
-  public isWaitingApproval(): boolean {
-    return this.pendingApproval !== null;
   }
 
   public getWorkingState(): WorkingState {
@@ -57,7 +52,6 @@ export class AgentRunnerController {
     try {
       await this.currentRun;
     } finally {
-      this.pendingApproval = null;
       this.abortController = null;
       this.currentRun = null;
       this.setState("idle");
@@ -65,21 +59,7 @@ export class AgentRunnerController {
   }
 
   public cancel(): void {
-    if (this.pendingApproval) {
-      this.resolveApproval("deny");
-      return;
-    }
-
     this.abortController?.abort();
-  }
-
-  public approve(decision: ApprovalDecision): boolean {
-    if (!this.pendingApproval) {
-      return false;
-    }
-
-    this.resolveApproval(decision);
-    return true;
   }
 
   public async waitForIdle(): Promise<void> {
@@ -90,46 +70,45 @@ export class AgentRunnerController {
 
   private async runQueryInternal(query: string, abortController: AbortController): Promise<void> {
     const modelId = this.getModelId();
-    logger.info(`runQuery model=${modelId}`);
+    logger.info(`开始执行请求，模型=${modelId}`);
+    this.uiAdapter.renderState(this.workingState, modelId);
 
     let finalAnswer = "";
     for await (const event of this.runner(this.client, modelId, query, {
       maxIterations: 3,
       signal: abortController.signal,
-      requestApproval: async ({ toolName }) => {
+      history: this.getConversationHistory(12),
+      requestApproval: async ({ toolName, argsRaw }) => {
         if (this.approvalController.isSessionAllowed(toolName)) {
           return "allow-once";
         }
 
         this.setState("approval");
-        return await new Promise<ApprovalDecision>((resolve) => {
-          this.pendingApproval = {
-            toolName,
-            resolve
-          };
-        });
+        const decision = await this.uiAdapter.requestApproval(toolName, argsRaw);
+        this.approvalController.apply(toolName, decision);
+        return decision;
       }
     })) {
       this.updateStateFromEvent(event);
-      renderEvent(event);
+      this.uiAdapter.renderEvent(event);
 
       if (event.type === "done") {
         finalAnswer = event.answer;
       }
     }
 
+    this.conversation.push({ role: "user", content: query });
+    this.conversation.push({ role: "assistant", content: finalAnswer });
     await this.inputHistoryController.add(query, finalAnswer);
   }
 
-  private resolveApproval(decision: ApprovalDecision): void {
-    if (!this.pendingApproval) {
-      return;
+  private getConversationHistory(maxTurns: number): ConversationMessage[] {
+    const count = maxTurns > 0 ? maxTurns * 2 : 24;
+    if (this.conversation.length <= count) {
+      return [...this.conversation];
     }
 
-    this.approvalController.apply(this.pendingApproval.toolName, decision);
-    this.pendingApproval.resolve(decision);
-    this.pendingApproval = null;
-    this.setState("running");
+    return this.conversation.slice(this.conversation.length - count);
   }
 
   private updateStateFromEvent(event: AgentEvent): void {
@@ -165,7 +144,7 @@ export class AgentRunnerController {
     }
 
     this.workingState = normalized;
-    renderWorkingState(this.workingState);
-    logger.debug(`workingState=${this.workingState}`);
+    this.uiAdapter.renderState(this.workingState, this.getModelId());
+    logger.debug(`状态切换=${this.workingState}`);
   }
 }

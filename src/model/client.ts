@@ -5,11 +5,11 @@ export function createLlmClient(): OpenAI {
   const baseURL = process.env.OPENAI_BASE_URL;
 
   if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY");
+    throw new Error("缺少 OPENAI_API_KEY");
   }
 
   if (!baseURL) {
-    throw new Error("Missing OPENAI_BASE_URL");
+    throw new Error("缺少 OPENAI_BASE_URL");
   }
 
   return new OpenAI({ apiKey, baseURL });

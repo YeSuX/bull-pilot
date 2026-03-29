@@ -9,6 +9,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@mariozechner/pi-tui": "^0.63.1",
     "dotenv": "^17.3.1",
     "openai": "^6.33.0"
   },

@@ -1,4 +1,5 @@
 import type { AgentEvent } from "../agent/types";
+import { t } from "../i18n";
 
 function truncate(input: string, maxLength: number): string {
   if (input.length <= maxLength) {
@@ -8,43 +9,73 @@ function truncate(input: string, maxLength: number): string {
   return `${input.slice(0, maxLength)}...`;
 }
 
-export function renderEvent(event: AgentEvent): void {
+export function formatEvent(event: AgentEvent): string[] {
+  if (event.type === "answer_start") {
+    return [t("assistantAnswer"), t("finalAnswer")];
+  }
+
+  if (event.type === "answer_delta") {
+    return [event.delta];
+  }
+
+  if (event.type === "answer_end") {
+    return [""];
+  }
+
   if (event.type === "thinking") {
-    console.log(`[thinking] ${event.message}`);
-    return;
+    return [t("eventThinking", { message: event.message })];
   }
 
   if (event.type === "approval_request") {
-    console.log(`[approval] ${event.name} requires approval`);
-    console.log("Use /approve allow-once | /approve allow-session | /approve deny");
-    return;
+    return [
+      t("eventApprovalNeed", { tool: event.name }),
+      t("approveHint")
+    ];
   }
 
   if (event.type === "approval_result") {
-    console.log(`[approval_result] ${event.name}: ${event.decision}`);
-    return;
+    return [t("eventApprovalResult", { tool: event.name, decision: event.decision })];
   }
 
   if (event.type === "tool_start") {
-    const input = truncate(JSON.stringify(event.input), 240);
-    console.log(`[tool_start] ${event.name} ${input}`);
-    return;
+    return [
+      t("eventToolStart", {
+        tool: event.name,
+        input: truncate(JSON.stringify(event.input), 240)
+      })
+    ];
   }
 
   if (event.type === "tool_end") {
     if ("data" in event.output && "content" in event.output.data) {
-      console.log(`[tool_end] ${event.name} content_length=${event.output.data.content.length}`);
-      return;
+      return [
+        t("eventToolEndRead", {
+          tool: event.name,
+          size: String(event.output.data.content.length)
+        })
+      ];
     }
 
-    console.log(`[tool_end] ${event.name}`);
-    return;
+    if ("data" in event.output && "bytes" in event.output.data) {
+      return [
+        t("eventToolEndWrite", {
+          tool: event.name,
+          size: String(event.output.data.bytes)
+        })
+      ];
+    }
+
+    return [t("eventToolEnd", { tool: event.name })];
   }
 
   if (event.type === "tool_error") {
-    console.log(`[tool_error] ${event.name}: ${truncate(event.error, 240)}`);
-    return;
+    return [
+      t("eventToolError", {
+        tool: event.name,
+        error: truncate(event.error, 240)
+      })
+    ];
   }
 
-  console.log(`\nFinal Answer:\n${event.answer}`);
+  return [t("assistantAnswer"), t("finalAnswer"), event.answer];
 }

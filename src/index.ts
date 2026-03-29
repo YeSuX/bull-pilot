@@ -5,6 +5,8 @@ import { AgentRunnerController } from "./controllers/agent-runner";
 import { ApprovalController } from "./controllers/approval";
 import { InputHistoryController } from "./controllers/input-history";
 import { ModelSelectionController } from "./controllers/model-selection";
+import { t } from "./i18n";
+import { createUiAdapter, resolveUiMode } from "./ui/create-adapter";
 
 async function main(): Promise<void> {
   const client = createLlmClient();
@@ -15,11 +17,21 @@ async function main(): Promise<void> {
   await inputHistory.init();
 
   const approval = new ApprovalController();
+  const mode = resolveUiMode(process.argv.slice(2), process.env.UI_MODE, Boolean(process.stdout.isTTY));
+  const uiAdapter = createUiAdapter({
+    mode,
+    getModelId: () => modelSelection.getModelId()
+  });
+  if (mode === "plain" && process.argv.includes("--plain")) {
+    uiAdapter.info(t("argPlainEnabled"));
+  }
+
   const agentRunner = new AgentRunnerController(
     client,
     () => modelSelection.getModelId(),
     inputHistory,
-    approval
+    approval,
+    uiAdapter
   );
 
   process.on("SIGINT", () => {
@@ -33,11 +45,12 @@ async function main(): Promise<void> {
   await runApp({
     agentRunner,
     inputHistory,
-    modelSelection
+    modelSelection,
+    uiAdapter
   });
 }
 
 main().catch((error: Error) => {
-  console.error(`Fatal: ${error.message}`);
+  console.error(t("fatal", { message: error.message }));
   process.exit(1);
 });

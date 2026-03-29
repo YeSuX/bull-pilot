@@ -1,24 +1,28 @@
-import { createInterface } from "node:readline/promises";
-import { stdin, stdout } from "node:process";
 import type { AgentRunnerController } from "../controllers/agent-runner";
 import type { InputHistoryController } from "../controllers/input-history";
 import type { ModelSelectionController } from "../controllers/model-selection";
+import { t } from "../i18n";
+import type { UiAdapter } from "../ui/adapter";
 import { handleCommand } from "./commands";
 
 export type AppControllers = {
   agentRunner: AgentRunnerController;
   inputHistory: InputHistoryController;
   modelSelection: ModelSelectionController;
+  uiAdapter: UiAdapter;
 };
 
 export async function runApp(controllers: AppControllers): Promise<void> {
-  const rl = createInterface({ input: stdin, output: stdout });
+  await controllers.uiAdapter.start();
+  controllers.uiAdapter.info(t("contextEnabled", { count: "12" }));
 
   while (true) {
-    const input = (await rl.question("bull-pilot> ")).trim();
+    const input = (await controllers.uiAdapter.readInput(t("promptInput"))).trim();
     if (input.length === 0) {
       continue;
     }
+
+    controllers.uiAdapter.info(t("userSaid", { input }));
 
     if (input.startsWith("/")) {
       const shouldExit = await handleCommand(input, controllers);
@@ -29,12 +33,12 @@ export async function runApp(controllers: AppControllers): Promise<void> {
     }
 
     if (controllers.agentRunner.isRunning()) {
-      console.log("agent is running, use /cancel or wait");
+      controllers.uiAdapter.info(t("cmdOnlyIdle"));
       continue;
     }
 
-    controllers.agentRunner.runQuery(input).catch((error: Error) => {
-      console.log(`query failed: ${error.message}`);
+    await controllers.agentRunner.runQuery(input).catch((error: Error) => {
+      controllers.uiAdapter.error(t("queryFailed", { message: error.message }));
     });
   }
 
@@ -43,5 +47,5 @@ export async function runApp(controllers: AppControllers): Promise<void> {
     await controllers.agentRunner.waitForIdle();
   }
 
-  rl.close();
+  await controllers.uiAdapter.close();
 }

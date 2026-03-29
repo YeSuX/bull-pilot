@@ -1,9 +1,18 @@
 import type { WorkingState } from "../controllers/types";
+import { t } from "../i18n";
 
-export function renderWorkingState(state: WorkingState): void {
-  if (state === "idle") {
-    return;
+export function stateToLabel(state: WorkingState): string {
+  if (state === "thinking") {
+    return t("stateThinking");
   }
 
-  console.log(`[state] ${state}`);
+  if (state === "tool") {
+    return t("stateTool");
+  }
+
+  if (state === "approval") {
+    return t("stateApproval");
+  }
+
+  return t("stateIdle");
 }

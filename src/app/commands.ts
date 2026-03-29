@@ -1,14 +1,33 @@
 import type { AgentRunnerController } from "../controllers/agent-runner";
 import type { InputHistoryController } from "../controllers/input-history";
 import type { ModelSelectionController } from "../controllers/model-selection";
-import type { ApprovalDecision } from "../controllers/types";
+import { t } from "../i18n";
+import type { UiAdapter } from "../ui/adapter";
 import { logger } from "../utils/logger";
+import type { LogLevel } from "../utils/logger";
 
 export type CommandContext = {
   agentRunner: AgentRunnerController;
   inputHistory: InputHistoryController;
   modelSelection: ModelSelectionController;
+  uiAdapter: UiAdapter;
 };
+
+function levelToZh(level: LogLevel): string {
+  if (level === "debug") {
+    return "调试";
+  }
+
+  if (level === "info") {
+    return "信息";
+  }
+
+  if (level === "warn") {
+    return "警告";
+  }
+
+  return "错误";
+}
 
 function parsePositiveInt(value: string | undefined): number | null {
   if (!value) {
@@ -25,75 +44,73 @@ function parsePositiveInt(value: string | undefined): number | null {
 
 export async function handleCommand(input: string, context: CommandContext): Promise<boolean> {
   const [command, ...rest] = input.trim().split(/\s+/);
+  const commandName = command ?? "";
 
-  if (command === "/help") {
-    console.log("/help");
-    console.log("/model [modelId]");
-    console.log("/history [count]");
-    console.log("/cancel");
-    console.log("/approve allow-once|allow-session|deny");
-    console.log("/exit");
+  if (commandName === "/help") {
+    context.uiAdapter.info(t("cmdHelpTitle"));
+    context.uiAdapter.info(t("cmdHelpModel"));
+    context.uiAdapter.info(t("cmdHelpHistory"));
+    context.uiAdapter.info(t("cmdHelpCancel"));
+    context.uiAdapter.info(t("cmdLogs"));
+    context.uiAdapter.info(t("cmdHelpExit"));
     return false;
   }
 
-  if (command === "/exit") {
+  if (commandName === "/exit") {
     return true;
   }
 
-  if (command === "/cancel") {
+  if (commandName === "/cancel") {
     context.agentRunner.cancel();
     return false;
   }
 
-  if (command === "/model") {
+  if (commandName === "/model") {
     const nextModelId = rest[0];
     if (!nextModelId) {
-      console.log(`current model: ${context.modelSelection.getModelId()}`);
+      context.uiAdapter.info(t("cmdCurrentModel", { model: context.modelSelection.getModelId() }));
       return false;
     }
 
     await context.modelSelection.setModelId(nextModelId);
-    console.log(`model updated: ${context.modelSelection.getModelId()}`);
+    context.uiAdapter.info(t("cmdModelUpdated", { model: context.modelSelection.getModelId() }));
     return false;
   }
 
-  if (command === "/history") {
-    const count = parsePositiveInt(rest[0]) ?? 10;
+  if (commandName === "/history") {
+    const rawCount = rest[0];
+    const parsedCount = parsePositiveInt(rawCount);
+    if (rawCount && parsedCount === null) {
+      context.uiAdapter.info(t("cmdInvalidCount"));
+    }
+
+    const count = parsedCount ?? 10;
     const items = context.inputHistory.getRecent(count);
     if (items.length === 0) {
-      console.log("history is empty");
+      context.uiAdapter.info(t("cmdHistoryEmpty"));
       return false;
     }
 
     for (const item of items) {
-      console.log(`[${item.createdAt}] Q: ${item.query}`);
-      console.log(`[${item.createdAt}] A: ${item.answer}`);
+      context.uiAdapter.info(`[${item.createdAt}] ${t("cmdHistoryQuery")}: ${item.query}`);
+      context.uiAdapter.info(`[${item.createdAt}] ${t("cmdHistoryAnswer")}: ${item.answer}`);
     }
     return false;
   }
 
-  if (command === "/approve") {
-    const value = rest[0];
-    if (value !== "allow-once" && value !== "allow-session" && value !== "deny") {
-      console.log("usage: /approve allow-once|allow-session|deny");
+  if (commandName === "/logs") {
+    const entries = logger.getRecent();
+    if (entries.length === 0) {
+      context.uiAdapter.info(t("logsEmpty"));
       return false;
     }
 
-    const decision: ApprovalDecision = value;
-    const handled = context.agentRunner.approve(decision);
-    if (!handled) {
-      console.log("no pending approval");
+    for (const entry of entries) {
+      context.uiAdapter.info(`[${levelToZh(entry.level)}] ${entry.at} ${entry.message}`);
     }
     return false;
   }
 
-  if (command === "/logs") {
-    for (const entry of logger.getRecent()) {
-      console.log(`[${entry.level}] ${entry.at} ${entry.message}`);
-    }
-    return false;
-  }
-
-  console.log(`unknown command: ${command}`);
+  context.uiAdapter.error(t("cmdUnknown", { command: commandName }));
   return false;
 }

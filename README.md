@@ -28,14 +28,30 @@ Example query:
 读取 package.json 的 name 和 version
 ```
 
+Built-in commands:
+
+```text
+/help
+/model [modelId]
+/history [count]
+/approve allow-once|allow-session|deny
+/cancel
+/exit
+```
+
 ## Typecheck
 
 ```bash
 bun run typecheck
 ```
 
+## Test
+
+```bash
+bun test
+```
+
 ## Known Limits (V0)
 
-- Single tool only: `read_file`
-- Single query focus, no persistent memory
-- No write-tool approval flow
+- REPL 是文本模式，不是全屏 TUI
+- 当前仅实现 `read_file` 与 `write_file` 两个本地工具

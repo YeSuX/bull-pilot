@@ -1,5 +1,5 @@
-import type { ReadFileArgs, ReadFileResult } from "../tools/read-file";
-import type { ToolName } from "../tools/registry";
+import type { ApprovalDecision } from "../controllers/types";
+import type { ToolArgs, ToolName, ToolResult } from "../tools/registry";
 
 export type ThinkingEvent = {
   type: "thinking";
@@ -9,13 +9,13 @@ export type ThinkingEvent = {
 export type ToolStartEvent = {
   type: "tool_start";
   name: ToolName;
-  input: ReadFileArgs;
+  input: ToolArgs;
 };
 
 export type ToolEndEvent = {
   type: "tool_end";
   name: ToolName;
-  output: ReadFileResult;
+  output: ToolResult;
 };
 
 export type ToolErrorEvent = {
@@ -29,4 +29,23 @@ export type DoneEvent = {
   answer: string;
 };
 
-export type AgentEvent = ThinkingEvent | ToolStartEvent | ToolEndEvent | ToolErrorEvent | DoneEvent;
+export type ApprovalRequestEvent = {
+  type: "approval_request";
+  name: ToolName;
+  input: ToolArgs;
+};
+
+export type ApprovalResultEvent = {
+  type: "approval_result";
+  name: ToolName;
+  decision: ApprovalDecision;
+};
+
+export type AgentEvent =
+  | ThinkingEvent
+  | ToolStartEvent
+  | ToolEndEvent
+  | ToolErrorEvent
+  | ApprovalRequestEvent
+  | ApprovalResultEvent
+  | DoneEvent;

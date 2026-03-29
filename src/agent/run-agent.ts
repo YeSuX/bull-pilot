@@ -1,10 +1,45 @@
 import type OpenAI from "openai";
 import type { AgentEvent } from "./types";
-import { executeTool, normalizeToolName, tools } from "../tools/registry";
-import { parseReadFileArgs } from "../tools/read-file";
+import type { ApprovalDecision } from "../controllers/types";
+import {
+  executeTool,
+  normalizeToolName,
+  parseToolArgs,
+  requiresApproval,
+  tools,
+  type ToolName
+} from "../tools/registry";
+
+type ApprovalRequest = {
+  toolName: ToolName;
+  argsRaw: string;
+};
+
+export type RunAgentOptions = {
+  maxIterations?: number;
+  signal?: AbortSignal;
+  requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
+};
+
+export type LlmClient = {
+  chat: {
+    completions: {
+      create: (
+        body: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+        options?: { signal?: AbortSignal }
+      ) => Promise<OpenAI.Chat.Completions.ChatCompletion>;
+    };
+  };
+};
 
 function assistantContentToText(content: OpenAI.Chat.Completions.ChatCompletionMessage["content"]): string {
   return content ?? "";
+}
+
+function toAssistantMessageParam(
+  message: OpenAI.Chat.Completions.ChatCompletionMessage
+): OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam {
+  return message as OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam;
 }
 
 function isFunctionToolCall(
@@ -13,26 +48,25 @@ function isFunctionToolCall(
   return call.type === "function";
 }
 
-function toAssistantMessageParam(
-  message: OpenAI.Chat.Completions.ChatCompletionMessage
-): OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam {
-  // 直接复用模型返回的 assistant 消息，保留 provider 扩展字段（如 reasoning_content）
-  return message as OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam;
+function isAbortError(error: Error): boolean {
+  return error.name === "AbortError";
 }
 
 export async function* runAgent(
-  client: OpenAI,
+  client: LlmClient,
   model: string,
   query: string,
-  maxIterations: number = 2
+  options: RunAgentOptions = {}
 ): AsyncGenerator<AgentEvent> {
+  const maxIterations = options.maxIterations ?? 3;
+  const signal = options.signal;
+  const requestApproval = options.requestApproval;
+
   const systemPrompt = [
     "你是一个 CLI Agent。",
     "当问题需要外部数据时，优先调用工具。",
     "拿到足够工具结果后，直接给出最终答案，不要继续调用工具。"
   ].join(" ");
-
-  yield { type: "thinking", message: "Analyzing query" };
 
   let iteration = 0;
   let assistantMessageForNextRound: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam | null = null;
@@ -40,6 +74,11 @@ export async function* runAgent(
 
   try {
     while (iteration < maxIterations) {
+      if (signal?.aborted) {
+        yield { type: "done", answer: "Execution interrupted" };
+        return;
+      }
+
       yield { type: "thinking", message: `Iteration ${iteration + 1}/${maxIterations}` };
 
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -48,17 +87,18 @@ export async function* runAgent(
       ];
 
       if (assistantMessageForNextRound) {
-        // 第二轮必须回传首轮 assistant tool_call 消息，否则部分 provider 会校验失败
         messages.push(assistantMessageForNextRound);
         messages.push(...toolMessages);
       }
 
-      const completion = await client.chat.completions.create({
+      const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
         model,
         messages,
         tools,
         tool_choice: "auto"
-      });
+      };
+
+      const completion = await client.chat.completions.create(request, { signal });
 
       const assistant = completion.choices[0]?.message;
 
@@ -68,27 +108,47 @@ export async function* runAgent(
       }
 
       const calls = assistant.tool_calls ?? [];
-
       if (calls.length === 0) {
-        yield {
-          type: "done",
-          answer: assistantContentToText(assistant.content) || "No answer"
-        };
+        yield { type: "done", answer: assistantContentToText(assistant.content) || "No answer" };
         return;
       }
 
-      yield { type: "thinking", message: `Model requested ${calls.length} tool call(s)` };
       toolMessages = [];
 
       for (const call of calls) {
+        if (signal?.aborted) {
+          yield { type: "done", answer: "Execution interrupted" };
+          return;
+        }
+
         if (!isFunctionToolCall(call)) {
           continue;
         }
 
         const toolName = normalizeToolName(call.function.name);
+        const argsRaw = call.function.arguments || "{}";
+        const args = parseToolArgs(toolName, argsRaw);
+
+        if (requiresApproval(toolName)) {
+          yield { type: "approval_request", name: toolName, input: args };
+          if (!requestApproval) {
+            yield { type: "approval_result", name: toolName, decision: "deny" };
+            yield { type: "tool_error", name: toolName, error: "Approval handler is not configured" };
+            yield { type: "done", answer: "Execution denied: approval is required" };
+            return;
+          }
+
+          const decision = await requestApproval({ toolName, argsRaw });
+          yield { type: "approval_result", name: toolName, decision };
+
+          if (decision === "deny") {
+            yield { type: "tool_error", name: toolName, error: "User denied tool execution" };
+            yield { type: "done", answer: "Execution denied by user" };
+            return;
+          }
+        }
 
         try {
-          const args = parseReadFileArgs(call.function.arguments || "{}");
           yield { type: "tool_start", name: toolName, input: args };
           const execution = await executeTool(toolName, args);
           yield { type: "tool_end", name: toolName, output: execution.result };
@@ -111,12 +171,16 @@ export async function* runAgent(
       }
 
       assistantMessageForNextRound = toAssistantMessageParam(assistant);
-
       iteration += 1;
     }
 
     yield { type: "done", answer: "Reached max iterations without final answer" };
   } catch (error) {
+    if (error instanceof Error && isAbortError(error)) {
+      yield { type: "done", answer: "Execution interrupted" };
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     yield { type: "done", answer: `Agent failed: ${message}` };
   }

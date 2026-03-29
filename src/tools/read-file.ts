@@ -1,5 +1,6 @@
 import type OpenAI from "openai";
 import { readFile } from "node:fs/promises";
+import { resolveWorkspaceFilePath } from "./filesystem";
 
 export type ReadFileArgs = {
   path: string;
@@ -43,7 +44,8 @@ export function parseReadFileArgs(rawArguments: string): ReadFileArgs {
 
 export async function runReadFile(args: ReadFileArgs): Promise<ReadFileResult> {
   try {
-    const content = await readFile(args.path, "utf-8");
+    const target = await resolveWorkspaceFilePath(args.path, false);
+    const content = await readFile(target, "utf-8");
     return {
       data: {
         path: args.path,

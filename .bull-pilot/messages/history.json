@@ -1,0 +1,110 @@
+[
+  {
+    "id": "a2224643-5280-4d77-89e8-e898e6adf32a",
+    "query": "hello",
+    "answer": "ok",
+    "createdAt": "2026-03-29T07:43:29.405Z"
+  },
+  {
+    "id": "944b9471-e5ea-4637-babc-02723c9a5f16",
+    "query": "first",
+    "answer": "answer=first",
+    "createdAt": "2026-03-29T07:43:29.411Z"
+  },
+  {
+    "id": "f6a64f3e-9d27-4307-b7ed-196e04667c16",
+    "query": "second",
+    "answer": "answer=second",
+    "createdAt": "2026-03-29T07:43:29.411Z"
+  },
+  {
+    "id": "f77eff7b-c4fb-430b-b160-bdb5bcba296e",
+    "query": "hello",
+    "answer": "ok",
+    "createdAt": "2026-03-29T07:44:22.407Z"
+  },
+  {
+    "id": "b577cad1-e07d-4ee2-be1f-8c5141d35111",
+    "query": "first",
+    "answer": "answer=first",
+    "createdAt": "2026-03-29T07:44:22.413Z"
+  },
+  {
+    "id": "3073c0a3-7f53-4cfa-9bb9-6131f8ac454f",
+    "query": "second",
+    "answer": "answer=second",
+    "createdAt": "2026-03-29T07:44:22.413Z"
+  },
+  {
+    "id": "5a64df46-5f11-41f6-97de-f1c82f16bc74",
+    "query": "hello",
+    "answer": "ok",
+    "createdAt": "2026-03-29T07:44:47.304Z"
+  },
+  {
+    "id": "47833ba0-11b5-4bcc-b281-e7a75f018ea0",
+    "query": "first",
+    "answer": "answer=first",
+    "createdAt": "2026-03-29T07:44:47.308Z"
+  },
+  {
+    "id": "799b0468-394a-4a81-b798-8b71f353e4f9",
+    "query": "second",
+    "answer": "answer=second",
+    "createdAt": "2026-03-29T07:44:47.308Z"
+  },
+  {
+    "id": "dfe38fea-ed49-417f-9843-2087d5d132e3",
+    "query": "hello",
+    "answer": "ok",
+    "createdAt": "2026-03-29T07:45:20.042Z"
+  },
+  {
+    "id": "a26da612-bd85-4e33-9aaa-54279f222ad0",
+    "query": "first",
+    "answer": "answer=first",
+    "createdAt": "2026-03-29T07:45:20.043Z"
+  },
+  {
+    "id": "a87c2062-a972-40b2-aaec-e20408e5c8b4",
+    "query": "second",
+    "answer": "answer=second",
+    "createdAt": "2026-03-29T07:45:20.044Z"
+  },
+  {
+    "id": "7d879c25-c35c-4d13-a7f1-203026e23ef4",
+    "query": "hello",
+    "answer": "ok",
+    "createdAt": "2026-03-29T07:45:49.453Z"
+  },
+  {
+    "id": "0e38782f-7b34-4b32-be11-59fd93248265",
+    "query": "first",
+    "answer": "answer=first",
+    "createdAt": "2026-03-29T07:45:49.457Z"
+  },
+  {
+    "id": "3d3d4e4a-eead-4e9b-8935-9049a7936341",
+    "query": "second",
+    "answer": "answer=second",
+    "createdAt": "2026-03-29T07:45:49.457Z"
+  },
+  {
+    "id": "821aa563-17cf-438d-bb9c-15f53497d1e0",
+    "query": "你可以做什么？",
+    "answer": "我是一个 CLI Agent，可以通过命令行与你交互。我主要可以帮你：\n\n## 📁 文件操作\n- **读取文件**：可以读取本地文本文件的内容\n- **写入文件**：可以将文本内容保存到本地文件\n\n## 💬 对话交互\n- 回答你的问题\n- 进行连续的对话\n- 解释代码、概念或提供建议\n\n## 🔧 如何与我协作\n当你需要处理文件时，告诉我文件路径和具体操作，我会使用工具来完成。比如：\n- \"帮我读取 config.txt 文件\"\n- \"将这段内容保存到 output.md\"\n\n如果你有任何任务需要完成，随时告诉我！",
+    "createdAt": "2026-03-29T07:50:37.945Z"
+  },
+  {
+    "id": "fe98f688-b117-4e2f-b556-27442d70ec33",
+    "query": "好的",
+    "answer": "你好！有什么我可以帮助你的吗？比如：\n\n- 读写文件\n- 代码相关的问题\n- 其他问题\n\n请告诉我你的需求 😊",
+    "createdAt": "2026-03-29T07:50:58.344Z"
+  },
+  {
+    "id": "f7e5f10e-48f7-4332-b42b-d14bf28db050",
+    "query": "读取package.json 文件，并分析，然后写入到将这段内容保存到 output.md",
+    "answer": "已完成分析并将结果写入 `output.md` 文件！\n\n## 分析概要\n\n**bull-pilot** 是一个基于 **Bun + TypeScript** 的私有项目，主要特点：\n\n| 特性 | 说明 |\n|------|------|\n| 🚀 **运行时** | Bun（现代 JavaScript 运行时） |\n| 📘 **语言** | TypeScript |\n| 📦 **模块** | ES Modules |\n| 🤖 **AI 集成** | OpenAI API（GPT 等服务） |\n| ⚙️ **配置** | dotenv 环境变量管理 |\n\n**主要依赖**：\n- `openai` - 用于调用 OpenAI API\n- `dotenv` - 环境变量管理\n\n**可用命令**：\n- `bun run start` - 启动项目\n- `bun run typecheck` - 类型检查\n- `bun run test` - 运行测试\n\n完整的分析报告已保存到 `output.md`，包含技术栈推断和项目结构推测。",
+    "createdAt": "2026-03-29T07:52:29.571Z"
+  }
+]
